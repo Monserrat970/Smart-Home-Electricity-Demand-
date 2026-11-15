@@ -1,0 +1,25 @@
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# macOS files
+.DS_Store
+
+# VS Code local settings
+.vscode/
+
+# Local dataset files
+data/*.csv
+data/*.zip
+
+# Trained model files
+models/*.joblib
+models/*.pkl
+
+# Streamlit secrets
+.streamlit/secrets.toml
