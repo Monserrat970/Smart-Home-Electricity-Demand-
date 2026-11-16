@@ -1,231 +1,340 @@
 # Smart-Home-Electricity-Demand-
-Smart Home Electricity Demand 
-# Predicting Single-Home Electricity Demand Using Support Vector Regression and Time-Series Forecasting
+
+# Weather-Based Household Electricity Demand Forecasting Using SVR
 
 ## Project Overview
 
-This project focuses on predicting electricity demand for a single residential home using Support Vector Regression (SVR) and time-series forecasting techniques.
+This project investigates the effectiveness of Support Vector Regression (SVR) for forecasting household electricity demand using historical weather conditions and time-related features.
 
-Electricity consumption varies throughout the day depending on household activity, environmental conditions, and historical usage patterns. Understanding these patterns can help homeowners anticipate electricity demand and make more informed decisions about energy efficiency.
+Electricity consumption can fluctuate throughout the day due to household activities, environmental conditions, and energy usage patterns. Accurately forecasting electricity demand may help improve energy management and resource planning.
 
-The primary objective of this project is to develop a machine learning model that uses historical electricity consumption, time-related features, and available environmental measurements to predict a home's electricity demand **one hour into the future**.
+The primary objective of this project is to evaluate whether an SVR model can predict a household's average electricity demand one hour ahead and determine whether it provides meaningful improvements over a simple baseline.
 
-The project will also include an interactive Streamlit dashboard that allows users to visualize historical electricity consumption and the model's predictions.
+A Streamlit dashboard was developed to demonstrate the model's predictions and compare them with actual historical electricity consumption.
 
-## Problem Statement
+## Research Question
 
-Residential electricity demand is not constant. Household electricity consumption changes depending on factors such as the time of day, temperature, weather conditions, and daily activities.
+**How effectively can Support Vector Regression predict one-hour-ahead household electricity demand using weather and time-related features?**
 
-Accurately forecasting electricity demand can help homeowners better understand consumption patterns and anticipate periods of increased electricity usage.
-
-This project investigates the following question:
-
-**How accurately can Support Vector Regression predict a single home's electricity demand one hour ahead using historical electricity consumption and environmental data?**
-
-## Project Objectives
-
-The primary objectives of this project are to:
-
-1. Analyze historical electricity consumption data from a single residential home.
-2. Identify relevant time-related and environmental features that may influence electricity demand.
-3. Apply time-series feature engineering to transform historical electricity measurements into supervised learning data.
-4. Develop a Support Vector Regression model to predict electricity demand one hour ahead.
-5. Evaluate the model's predictive performance using regression evaluation metrics.
-6. Investigate how different features and SVR hyperparameters affect prediction accuracy.
-7. Develop an interactive Streamlit dashboard to visualize electricity consumption and forecast results.
+The project evaluates SVR using Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and the coefficient of determination (R²).
 
 ## Dataset
 
-The project uses the **Smart Home Dataset with Weather Information**, publicly available on Kaggle.
+**Dataset:** Smart Home Dataset with Weather Information
 
-**Dataset source:**
+**Source:** [Kaggle](https://www.kaggle.com/datasets/taranvee/smart-home-dataset-with-weather-information)
+
+The original dataset contains approximately 503,911 observations and 32 columns, including household electricity consumption and weather measurements.
+
+The available observations span approximately six days in January 2016.
+
+### Selected Features
+
+The following six features are used as model inputs:
+
+| Feature | Description |
+|---------|-------------|
+| temperature | Average hourly outdoor temperature |
+| humidity | Average hourly relative humidity |
+| windSpeed | Average hourly wind speed |
+| pressure | Average hourly atmospheric pressure |
+| hour | Hour of the day (0–23) |
+| day_of_week | Day of the week (0–6) |
+
+### Target Variable
+
+`target_next_hour_kw`
+
+The target represents the household's average electricity demand during the hour following the observed weather conditions.
+
+The model uses weather and time-related information from the current hour to predict average demand during the next hour.
+
+Current-hour electricity demand is intentionally excluded from the input features to evaluate a weather-and-time-only forecasting approach.
+
+## Data Preprocessing
+
+The original dataset contains measurements recorded at approximately one-second intervals.
+
+The preprocessing pipeline performs the following operations:
+
+1. Loads the required electricity and weather columns.
+2. Converts timestamps into UTC datetime values.
+3. Removes invalid timestamps and missing target values.
+4. Aggregates observations into hourly averages.
+5. Retains hours containing at least 3,500 measurements.
+6. Creates hour-of-day and day-of-week features.
+7. Shifts electricity demand forward by one hour to construct the prediction target.
+8. Removes observations without a valid consecutive next-hour target.
+
+After preprocessing, the dataset contains **139 hourly observations**.
+
+The processed dataset is saved as:
+
+`data/processed_hourly.csv`
+
+## Machine Learning Methodology
+
+### Support Vector Regression
+
+Support Vector Regression is a supervised machine learning algorithm that estimates a continuous target variable.
+
+This project uses an SVR model with a Radial Basis Function (RBF) kernel to model potentially nonlinear relationships between weather conditions, time-related features, and household electricity demand.
+
+### Feature Scaling
+
+A `StandardScaler` is applied to the input features before training SVR.
+
+Scaling is important because SVR is sensitive to differences in feature magnitude.
+
+The scaler and SVR model are combined using a scikit-learn `Pipeline` to ensure consistent preprocessing during training and prediction.
+
+### Chronological Data Splitting
+
+The dataset is divided chronologically rather than randomly to preserve the temporal ordering of observations.
+
+The initial experiment uses approximately:
+
+- 70% training data
+- 15% validation data
+- 15% testing data
+
+A boundary gap is used where necessary to reduce overlap between training targets and subsequent evaluation periods.
+
+The resulting initial split contains:
+
+| Dataset | Observations |
+|---------|-------------:|
+| Training | 96 |
+| Validation | 20 |
+| Testing | 21 |
+
+The final model is refitted on the development portion before evaluation on the reserved test period.
+
+### Baseline Model
+
+SVR is compared against a training-mean baseline.
+
+This baseline predicts the average target electricity demand observed in the training data.
+
+The comparison helps determine whether SVR provides additional predictive value beyond a simple constant forecast.
+
+### Hyperparameter Tuning
+
+The initial SVR model uses default hyperparameters.
+
+A small grid search evaluates combinations of:
+
+- `C`: 0.1, 1, 10
+- `epsilon`: 0.05, 0.1, 0.2
+
+The best configuration is selected using validation MAE.
+
+**Selected hyperparameters:**
+
+- Kernel: RBF
+- C: 0.1
+- Epsilon: 0.05
+- Gamma: scale
+
+## Experimental Results
+
+### Initial Validation Results
+
+| Model | MAE (kW) | RMSE (kW) | R² |
+|-------|---------:|----------:|---:|
+| Training-mean baseline | 0.2654 | 0.3074 | -0.5940 |
+| Default SVR | 0.7651 | 0.8548 | -11.3267 |
+
+The default SVR model performed substantially worse than the baseline during initial validation.
+
+Hyperparameter tuning improved the SVR validation MAE to **0.3180 kW**, although it remained higher than the baseline MAE.
+
+### Final Test Results
+
+| Model | MAE (kW) | RMSE (kW) | R² |
+|-------|---------:|----------:|---:|
+| Training-mean baseline | 0.1203 | 0.1549 | -0.0062 |
+| Tuned SVR | 0.1157 | 0.1502 | 0.0538 |
+
+The tuned SVR model achieved a slightly lower test MAE than the baseline.
+
+However, the improvement was small, and the low R² indicates limited explanatory performance on the test period.
+
+### Expanding-Window Cross-Validation
+
+To investigate the consistency of SVR performance across different time periods, three chronological validation folds were evaluated.
+
+| Fold | Baseline MAE (kW) | SVR MAE (kW) | SVR R² |
+|------|------------------:|-------------:|-------:|
+| 1 | 0.3268 | 0.2618 | -0.0097 |
+| 2 | 0.7159 | 0.7493 | -0.8264 |
+| 3 | 0.2603 | 0.3214 | -1.2189 |
+| **Average** | **0.4343** | **0.4442** | **-0.6850** |
+
+SVR outperformed the baseline in only one of the three folds.
+
+These results indicate that the model's predictive performance varied across evaluation periods.
+
+Because the SVR configuration was previously selected using an overlapping development period, this experiment is interpreted as a retrospective stability analysis rather than an independent nested cross-validation estimate.
+
+## Prediction Visualization
+
+The following graph compares actual electricity demand, SVR predictions, and baseline predictions during the held-out test period.
+
+![SVR Prediction Results](documents/svr_predictions.png)
+
+The visualization illustrates that SVR approximates some demand levels but struggles to capture larger fluctuations in electricity consumption.
+
+## Streamlit Dashboard
+
+An interactive Streamlit dashboard was developed to demonstrate the trained SVR model.
+
+The dashboard allows users to:
+
+- Select an observation from the historical test period.
+- View its associated weather conditions.
+- Generate an SVR prediction for the following hour.
+- Compare predicted and actual electricity demand.
+- Examine absolute prediction error.
+- View overall test performance and prediction trends.
+
+The dashboard uses the trained scikit-learn pipeline saved in `models/svr_model.joblib`.
+
+It is intended for historical model evaluation rather than live forecasting.
+
+## Project Structure
+
+```text
+Smart-Home-Electricity-Demand-/
+|
+|-- app.py
+|-- README.md
+|-- requirements.txt
+|
+|-- data/
+|   |-- HomeC.csv
+|   |-- processed_hourly.csv
+|   |-- test_predictions.csv
+|
+|-- models/
+|   |-- svr_model.joblib
+|
+|-- src/
+|   |-- explore_data.py
+|   |-- preprocess_data.py
+|   |-- train_model.py
+|   |-- visualize_results.py
+|   |-- cross_validate.py
+|
+|-- documents/
+    |-- svr_predictions.png
+    |-- cross_validation_results.csv
+```
+
+Some generated files and the original dataset may be excluded from version control. See the dataset source and setup instructions below.
+
+## Installation and Setup
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Monserrat970/Smart-Home-Electricity-Demand-.git
+```
+
+### 2. Create a Virtual Environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+On Windows, activate the environment using:
+
+```powershell
+.venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### 4. Download the Dataset
+
+Download the Smart Home Dataset with Weather Information from Kaggle:
 
 https://www.kaggle.com/datasets/taranvee/smart-home-dataset-with-weather-information
 
-The dataset contains historical smart home electricity measurements along with associated weather information.
+Place the dataset in the `data/` directory with the filename:
 
-The prediction target will be overall household electricity demand, measured in kilowatts (kW).
+`HomeC.csv`
 
-The dataset will be examined to identify its exact columns, timestamp format, sampling frequency, missing values, and other preprocessing requirements.
+### 5. Explore and Preprocess the Data
 
-### Data Preparation
-
-The dataset will undergo the following preprocessing steps:
-
-1. Load and inspect the dataset using Pandas.
-2. Identify the timestamp and overall household electricity demand columns.
-3. Check for missing values, duplicate timestamps, and inconsistencies.
-4. Convert the dataset into hourly observations if necessary.
-5. Create time-related and historical consumption features.
-6. Separate the data chronologically into training, validation, and testing sets.
-7. Apply appropriate feature scaling using parameters learned from the training data.
-
-## Methodology
-
-### 1. Time-Series Forecasting
-
-Time-series forecasting uses historical observations to predict future values.
-
-In this project, historical electricity consumption measurements will be used to predict household electricity demand one hour ahead.
-
-The dataset will be transformed into a supervised learning problem through feature engineering.
-
-Potential features include:
-
-- Hour of the day
-- Day of the week
-- Electricity demand one hour earlier
-- Electricity demand two hours earlier
-- Electricity demand three hours earlier
-- Electricity demand at the same hour on the previous day
-- Rolling averages of historical electricity demand
-- Available environmental measurements such as temperature and humidity
-
-Only information available at the time of prediction will be used as model inputs to prevent data leakage.
-
-### 2. Support Vector Regression (SVR)
-
-Support Vector Regression is a supervised machine learning algorithm used to predict continuous numerical values.
-
-Unlike ordinary linear regression, SVR can use kernel functions to model nonlinear relationships between input features and the target variable.
-
-This project will initially use the Radial Basis Function (RBF) kernel to investigate nonlinear relationships between historical electricity demand, time-related features, and environmental conditions.
-
-The model will be implemented using Scikit-learn.
-
-The following hyperparameters will be investigated:
-
-- **C:** Controls the trade-off between model complexity and prediction errors.
-- **Epsilon:** Determines the width of the error-tolerance region around predictions.
-- **Gamma:** Controls the influence of individual training observations when using the RBF kernel.
-
-Feature scaling will be applied because SVR is sensitive to differences in feature magnitudes.
-
-### 3. Model Training and Validation
-
-The dataset will be divided chronologically into training, validation, and testing sets.
-
-Unlike random splitting, chronological splitting preserves the order of observations and better represents real-world forecasting.
-
-The training set will be used to fit the SVR model.
-
-The validation set will be used to compare hyperparameter configurations and select the preferred model.
-
-The held-out test set will be used to evaluate the selected model's performance on unseen future observations.
-
-### 4. Model Evaluation
-
-The model will be evaluated using the following regression metrics:
-
-**Mean Absolute Error (MAE):** Measures the average absolute difference between actual and predicted electricity demand.
-
-**Root Mean Squared Error (RMSE):** Measures prediction error while placing greater emphasis on larger errors.
-
-**R-squared (R²):** Measures predictive performance relative to a constant-mean baseline.
-
-Model predictions will also be compared against actual electricity demand through visualizations.
-
-Additional experiments will investigate whether including environmental measurements and different historical lag features improves forecasting performance.
-
-## Interactive Dashboard
-
-An interactive graphical interface will be developed using Streamlit.
-
-The dashboard is planned to allow users to:
-
-- View historical electricity consumption.
-- Select an available historical forecasting point.
-- Generate a one-hour-ahead electricity demand prediction.
-- Compare predicted demand with actual recorded demand when available.
-- Visualize prediction results through charts.
-
-The dashboard will use the trained SVR model and the same preprocessing transformations used during model training.
-
-## Technologies and Libraries
-
-The project will use the following technologies:
-
-- **Python:** Primary programming language
-- **Pandas:** Data manipulation and preprocessing
-- **NumPy:** Numerical computations
-- **Scikit-learn:** SVR implementation, preprocessing, and evaluation
-- **Matplotlib:** Data visualization
-- **Streamlit:** Interactive dashboard
-- **Joblib:** Saving and loading the trained model
-
-## Repository Structure
-
-The planned repository structure is:
-
-```text
-smart-home-energy-forecasting/
-├── data/
-├── src/
-├── models/
-├── documents/
-├── app.py
-├── README.md
-├── requirements.txt
-└── .gitignore
+```bash
+python src/explore_data.py
+python src/preprocess_data.py
 ```
 
-The `data` directory will contain the dataset files.
+### 6. Train the SVR Model
 
-The `src` directory will contain the Python scripts for data exploration, preprocessing, model training, and evaluation.
+```bash
+python src/train_model.py
+```
 
-The `models` directory will contain the saved trained model and required preprocessing objects.
+This creates the trained model and saved test predictions.
 
-The `documents` directory will contain figures and diagrams used in the final report.
+### 7. Generate Visualizations and Cross-Validation Results
 
-The `app.py` file will contain the Streamlit dashboard.
+```bash
+python src/visualize_results.py
+python src/cross_validate.py
+```
 
-Additional scripts and files will be documented as they are implemented.
+### 8. Launch the Streamlit Dashboard
 
-## Installation
+```bash
+python -m streamlit run app.py
+```
 
-Detailed installation instructions will be provided once the project dependencies and scripts have been implemented and tested.
+Open the local URL displayed in the terminal, usually:
 
-The final installation instructions will include:
-
-1. Cloning the GitHub repository.
-2. Creating and activating a Python virtual environment.
-3. Installing the required libraries using `requirements.txt`.
-4. Downloading and placing the dataset in the appropriate directory.
-
-Exact dependency versions and platform-specific instructions will be documented.
-
-## Training and Evaluation
-
-Commands for preprocessing the dataset, training the SVR model, performing validation, and evaluating the final model will be added after the corresponding scripts have been implemented.
-
-The final documentation will explain how to reproduce the experiments and identify the location of the training, validation, and test data.
-
-## Running the Streamlit Dashboard
-
-Instructions for launching the interactive dashboard will be added once the application and trained model are available.
-
-The final README will include the exact launch command and any required model files.
+http://localhost:8501
 
 ## Project Limitations
 
-The model is designed to forecast electricity demand for a single home. Its predictions may not generalize to other households with different consumption patterns.
+Several limitations should be considered when interpreting the results.
 
-Prediction accuracy will depend on the quality and availability of historical electricity measurements, environmental information, and the selected time-series features.
+**Limited data duration:** The dataset covers approximately six days in January 2016, preventing evaluation across different seasons and longer-term consumption patterns.
 
-The project will focus on one-hour-ahead forecasting rather than long-term electricity demand prediction.
+**Limited predictive features:** The model uses weather and time-related features without appliance activity, occupancy information, or previous electricity-demand values.
 
-## Project Status
+**Small evaluation periods:** The final test set contains only 21 hourly observations, limiting the reliability of performance estimates.
 
-**In Development**
+**Inconsistent cross-validation performance:** SVR did not consistently outperform the training-mean baseline across chronological validation folds.
 
-Current phase: Repository setup and dataset exploration.
+**Historical demonstration:** The dashboard replays historical observations and does not retrieve live weather conditions or provide operational forecasts.
 
-## References
+## Conclusion
 
-Smart Home Dataset with Weather Information. Kaggle.
+This project evaluated Support Vector Regression for one-hour-ahead household electricity demand forecasting using weather and time-related features.
 
-https://www.kaggle.com/datasets/taranvee/smart-home-dataset-with-weather-information
+Although hyperparameter tuning substantially improved performance over the default SVR configuration, the model demonstrated only a marginal advantage over the baseline on the held-out test period.
 
-Combining Embeddings and Fuzzy Time Series for High-Dimensional Time Series Forecasting in Internet of Energy Applications.
+Expanding-window cross-validation showed inconsistent performance, with SVR outperforming the baseline in only one of three folds.
 
-https://www.researchgate.net/publication/356818145_Combining_Embeddings_and_Fuzzy_Time_Series_for_High-Dimensional_Time_Series_Forecasting_in_Internet_of_Energy_Applications
+These findings suggest that weather and time-related features alone may not provide sufficient information for reliable household electricity-demand forecasting using the available dataset.
+
+Future improvements could include longer observation periods, historical electricity-demand features, additional baseline models, and more extensive time-series evaluation.
+
+## Technologies Used
+
+- Python
+- pandas
+- NumPy
+- scikit-learn
+- Support Vector Regression
+- Matplotlib
+- Streamlit
+- joblib
